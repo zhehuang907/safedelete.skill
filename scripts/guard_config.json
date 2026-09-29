@@ -1,0 +1,206 @@
+{
+  "version": 1,
+  "_comment": "safe-delete-guard 拦截规则配置。修改后无需重启，hook 每次调用时实时读取。",
+
+  "on_error": "allow",
+  "_comment_on_error": "脚本自身异常时的行为：allow=放行并记录日志（保证可用性）；deny=一律拦截（安全优先，但脚本故障会锁死所有 Bash）。",
+
+  "log_enabled": true,
+  "log_file": "~/.workbuddy/logs/safe-delete-guard.log",
+
+  "tool_command_field": {
+    "Bash": "command",
+    "PowerShell": "command"
+  },
+
+  "danger_commands": [
+    {
+      "id": "rm",
+      "names": ["rm"],
+      "desc": "rm 删除文件/目录"
+    },
+    {
+      "id": "rmdir",
+      "names": ["rmdir"],
+      "desc": "rmdir 删除目录"
+    },
+    {
+      "id": "unlink",
+      "names": ["unlink", "shred"],
+      "desc": "unlink / shred 删除并擦除"
+    },
+    {
+      "id": "truncate",
+      "names": ["truncate"],
+      "always_deny": true,
+      "desc": "truncate 截断文件（内容清空）"
+    },
+    {
+      "id": "find_delete",
+      "names": ["find"],
+      "require_flags": ["-delete"],
+      "always_deny": true,
+      "desc": "find -delete 递归删除"
+    },
+    {
+      "id": "rsync_delete",
+      "names": ["rsync"],
+      "require_flags": ["--delete"],
+      "always_deny": true,
+      "desc": "rsync --delete 镜像删除"
+    },
+    {
+      "id": "ps_remove_item",
+      "names": ["remove-item", "rm", "del", "rd", "rmdir", "ri", "erase"],
+      "shell": "powershell",
+      "desc": "PowerShell Remove-Item 及其别名"
+    },
+    {
+      "id": "ps_clear",
+      "names": ["clear-content", "clear-recyclebin", "format-volume"],
+      "shell": "powershell",
+      "desc": "PowerShell 清空内容/回收站/格式化卷"
+    },
+    {
+      "id": "cmd_del",
+      "names": ["del", "erase"],
+      "shell": "cmd",
+      "desc": "cmd del / erase 删除（含 /S /Q /F）"
+    }
+  ],
+
+  "_comment_git": "git 类破坏性操作单独判定，走 danger_patterns。",
+  "danger_patterns": [
+    {
+      "id": "git_clean",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*clean\\b(?![^|;&\\n]*--dry-run)(?![^|;&\\n]*\\s-n(?:\\s|$))",
+      "desc": "git clean 删除未跟踪文件（dry-run 除外）"
+    },
+    {
+      "id": "git_reset_hard",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*reset\\s+--hard\\b",
+      "desc": "git reset --hard 丢弃工作区改动"
+    },
+    {
+      "id": "git_checkout_discard",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*checkout\\s+--\\s",
+      "desc": "git checkout -- 丢弃工作区改动"
+    },
+    {
+      "id": "git_restore_worktree",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*restore\\b(?=[^|;&\\n]*--worktree)",
+      "desc": "git restore --worktree 丢弃工作区改动（--staged 取消暂存不算删除，不拦截）"
+    },
+    {
+      "id": "git_stash_drop",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*stash\\s+(?:drop|clear)\\b",
+      "desc": "git stash drop/clear 丢弃暂存栈"
+    },
+    {
+      "id": "python_delete_api",
+      "pattern": "shutil\\.rmtree\\s*\\(|os\\.remove\\s*\\(|os\\.unlink\\s*\\(|\\bunlink\\s*\\(",
+      "desc": "Python 删除 API（rmtree / os.remove / os.unlink）"
+    },
+    {
+      "id": "node_delete_api",
+      "pattern": "\\brimraf\\s*\\(|\\bfs\\.(?:rm|rmSync|unlink|unlinkSync)\\s*\\(|\\brmSync\\s*\\(|\\bunlinkSync\\s*\\(|\\bfs-extra\\.",
+      "desc": "Node 删除 API（fs.rm / fs.rmSync / rimraf，覆盖 require('fs').rmSync 写法）"
+    },
+    {
+      "id": "php_dotnet_delete",
+      "pattern": "Directory::delete\\(|unlink\\s*\\(|File::delete\\(",
+      "desc": "PHP / .NET 删除 API"
+    },
+    {
+      "id": "git_rm",
+      "pattern": "(?<!\\w)git\\s+(?:-[cC][^\\s]+\\s+)*rm\\b(?![^|;&\\n]*--cached)",
+      "desc": "git rm 删除文件并暂存（--cached 只取消跟踪，不拦截）"
+    },
+    {
+      "id": "xargs_delete",
+      "pattern": "(?<![\\w/.-])xargs\\s+(?:-[A-Za-z]+\\s+)*[^|;&\\n]*\\b(?:rm|rmdir|del|erase|Remove-Item|unlink|shred)\\b",
+      "desc": "xargs 接删除命令（find|rm、ls|xargs rm 等）"
+    },
+    {
+      "id": "dd_destroy",
+      "pattern": "\\bdd\\b(?=[^|;&\\n]*\\bof=/dev/(?:sd|hd|nvme|vd|loop))",
+      "desc": "dd 写入块设备（销毁磁盘）"
+    }
+  ],
+
+  "protected_exact_paths": [
+    "~",
+    "/",
+    "/home",
+    "/root",
+    "/etc",
+    "/usr",
+    "/var",
+    "/opt",
+    "/System",
+    "/Applications",
+    "/Library",
+    "/Users",
+    "C:\\",
+    "C:/",
+    "D:\\",
+    "D:/"
+  ],
+  "_comment_protected": "这些路径本身被删除时一律拦截，白名单不生效。子目录（如 ~/Desktop/node_modules）仍按白名单判定。",
+
+  "whitelist_dir_components": [
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    ".next",
+    ".nuxt",
+    ".svelte-kit",
+    ".output",
+    ".vite",
+    ".turbo",
+    ".parcel-cache",
+    ".cache",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".gradle",
+    "venv",
+    ".venv",
+    "env",
+    "target",
+    "bin",
+    "obj",
+    "coverage",
+    ".coverage",
+    "tmp",
+    "temp",
+    ".tmp",
+    ".wb-trash",
+    ".git"
+  ],
+  "_comment_whitelist_dir": "路径的任一目录层级命中即视为构建产物/缓存，允许删除。",
+
+  "whitelist_suffixes": [
+    ".log",
+    ".tmp",
+    ".temp",
+    ".bak",
+    ".orig",
+    ".pyc",
+    ".pyo",
+    ".cache",
+    ".pid",
+    ".lock"
+  ],
+  "_comment_whitelist_suffix": "文件后缀命中即允许删除。",
+
+  "whitelist_path_prefixes": [
+    "/tmp/",
+    "/var/tmp/",
+    "/private/tmp/",
+    "C:/Windows/Temp/"
+  ],
+  "_comment_whitelist_prefix": "以这些前缀开头的绝对路径允许删除（系统临时目录 / 本 Skill 自有回收站）。各用户临时目录由脚本运行时自动追加（读取 TEMP/TMP 环境变量），无需在此硬编码。"
+}

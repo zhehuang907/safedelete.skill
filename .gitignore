@@ -1,0 +1,18 @@
+# 回收站与回滚数据（运行时生成）
+.wb-trash/
+*.trash/
+
+# 日志
+*.log
+
+# 安装脚本产生的配置备份
+*.wbguard.bak
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
