@@ -16,3 +16,6 @@ __pycache__/
 .idea/
 .vscode/
 *.swp
+
+# WorkBuddy 工作目录（记忆与临时状态，不入库）
+.workbuddy/
